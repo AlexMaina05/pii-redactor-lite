@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PII Redactor Lite | Anonimizzatore Intelligente con Gemini Flash-Lite</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-full flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            PII Redactor Lite
+            <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">GDPR Ready</span>
+          </h1>
+          <p class="text-xs text-slate-400">Powered by Gemini Flash-Lite • 500 RPD Free Tier</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <!-- Status Badge -->
+        <div id="status-badge" class="hidden sm:flex items-center text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-2"></span>
+          <span id="status-text">Server Attivo</span>
+        </div>
+
+        <!-- Settings Button -->
+        <button id="open-settings-btn" class="flex items-center space-x-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i>
+          <span>Configurazione API</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col space-y-6">
+
+    <!-- Tab Navigation -->
+    <div class="flex border-b border-slate-800 space-x-8">
+      <button id="tab-redact-btn" class="tab-btn active pb-3 px-1 text-sm font-semibold text-indigo-400 border-b-2 border-indigo-500 flex items-center gap-2">
+        <i data-lucide="eye-off" class="w-4 h-4"></i>
+        1. Anonimizza Testo (Redact)
+      </button>
+      <button id="tab-restore-btn" class="tab-btn pb-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center gap-2">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        2. De-Anonimizza (Ripristina Dati)
+      </button>
+    </div>
+
+    <!-- TAB 1: REDACT VIEW -->
+    <div id="tab-redact-view" class="flex-1 flex flex-col space-y-6">
+      <!-- Toolbar & Actions -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+        <div class="flex items-center gap-2">
+          <button id="sample-text-btn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5">
+            <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Carica Esempio Reale
+          </button>
+          <button id="clear-input-btn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Svuota
+          </button>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="text-xs text-slate-400">
+            Modello: <span id="current-model-display" class="font-mono text-indigo-300 font-medium">gemini-2.5-flash-lite</span>
+          </div>
+          <button id="redact-btn" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition transform active:scale-95">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span>Anonimizza con Flash-Lite</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Split Layout (Original vs Redacted) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-[420px]">
+        
+        <!-- Left: Input Area -->
+        <div class="flex flex-col bg-slate-800/60 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+          <div class="px-4 py-3 bg-slate-800/90 border-b border-slate-700/60 flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="file-input" class="w-4 h-4 text-slate-400"></i>
+              Testo Originale (con dati sensibili)
+            </span>
+            <span id="char-count" class="text-xs font-mono text-slate-400">0 caratteri</span>
+          </div>
+          <div class="p-3 flex-1 flex flex-col">
+            <textarea id="input-text" placeholder="Incolla qui il testo da anonimizzare (es. contratti, email, log di supporto, note con nomi, codici fiscali, IBAN o telefoni)..." class="w-full flex-1 bg-transparent border-0 text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none font-mono leading-relaxed p-2"></textarea>
+          </div>
+        </div>
+
+        <!-- Right: Output Area -->
+        <div class="flex flex-col bg-slate-800/60 rounded-2xl border border-slate-800 overflow-hidden shadow-xl relative">
+          <div class="px-4 py-3 bg-slate-800/90 border-b border-slate-700/60 flex items-center justify-between">
+            <span class="text-xs font-semibold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="shield" class="w-4 h-4 text-indigo-400"></i>
+              Testo Anonimizzato (Pronto per LLM)
+            </span>
+            <div class="flex items-center gap-2">
+              <button id="copy-redacted-btn" title="Copia negli appunti" class="text-xs px-2.5 py-1 rounded bg-slate-700/60 hover:bg-slate-700 text-slate-300 flex items-center gap-1 transition">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copia
+              </button>
+              <button id="send-to-restore-btn" title="Invia alla tab di ripristino" class="text-xs px-2.5 py-1 rounded bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 flex items-center gap-1 transition">
+                <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5"></i> A Ripristino
+              </button>
+            </div>
+          </div>
+          
+          <div class="p-3 flex-1 flex flex-col relative">
+            <!-- Loading Overlay -->
+            <div id="loading-spinner" class="hidden absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center space-y-3">
+              <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              <p class="text-sm font-medium text-indigo-300 animate-pulse">Analisi ed estrazione PII con Flash-Lite...</p>
+            </div>
+
+            <textarea id="output-text" readonly placeholder="Il testo ripulito con i segnaposto [NOME_1], [IBAN_1], [EMAIL_1] comparirà qui..." class="w-full flex-1 bg-transparent border-0 text-sm text-indigo-200 placeholder-slate-500 focus:outline-none resize-none font-mono leading-relaxed p-2"></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Entities & Mapping Section -->
+      <div id="entities-section" class="hidden flex flex-col bg-slate-800/40 rounded-2xl border border-slate-800 p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i>
+              Entità Rilevate e Dizionario di Mappatura (<span id="entities-count">0</span>)
+            </h2>
+          </div>
+          <button id="export-mapping-btn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 flex items-center gap-1.5 transition">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Esporta Dizionario JSON
+          </button>
+        </div>
+
+        <!-- Table of entities -->
+        <div class="overflow-x-auto rounded-xl border border-slate-700/60">
+          <table class="w-full text-left text-xs font-sans">
+            <thead class="bg-slate-800 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-700/60">
+              <tr>
+                <th class="py-3 px-4">Segnaposto (Token)</th>
+                <th class="py-3 px-4">Dato Sensibile Originale</th>
+                <th class="py-3 px-4">Categoria</th>
+                <th class="py-3 px-4">Spiegazione</th>
+              </tr>
+            </thead>
+            <tbody id="entities-table-body" class="divide-y divide-slate-800 text-slate-300">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: RESTORE VIEW -->
+    <div id="tab-restore-view" class="hidden flex-1 flex flex-col space-y-6">
+      <div class="bg-indigo-950/30 border border-indigo-800/40 p-4 rounded-xl text-xs text-indigo-300 flex items-start gap-3">
+        <i data-lucide="info" class="w-5 h-5 text-indigo-400 shrink-0 mt-0.5"></i>
+        <div>
+          <p class="font-semibold text-indigo-200">Come funziona la De-Anonimizzazione:</p>
+          <p class="mt-1 text-slate-300 leading-relaxed">
+            Incolla qui la risposta ricevuta da un'altra AI o da terze parti (che contiene ancora i token come <code class="bg-indigo-900/50 px-1 py-0.5 rounded text-indigo-300">[NOME_1]</code>).
+            Il motore ripristinerà istantaneamente i dati personali reali tramite il dizionario di corrispondenza, <strong>100% in locale e senza consumare alcuna quota API</strong>.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-[420px]">
+        
+        <!-- Left: Text with placeholders to restore -->
+        <div class="flex flex-col bg-slate-800/60 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+          <div class="px-4 py-3 bg-slate-800/90 border-b border-slate-700/60 flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="code" class="w-4 h-4 text-slate-400"></i>
+              Testo con Segnaposto da Ripristinare
+            </span>
+          </div>
+          <div class="p-3 flex-1 flex flex-col">
+            <textarea id="restore-input-text" placeholder="Incolla qui il testo contenente i token (es. la risposta generata da ChatGPT/Claude per [NOME_1])..." class="w-full flex-1 bg-transparent border-0 text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none font-mono leading-relaxed p-2"></textarea>
+          </div>
+        </div>
+
+        <!-- Right: Restored result -->
+        <div class="flex flex-col bg-slate-800/60 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+          <div class="px-4 py-3 bg-slate-800/90 border-b border-slate-700/60 flex items-center justify-between">
+            <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              Testo Finale Ricostruito
+            </span>
+            <button id="copy-restored-btn" class="text-xs px-2.5 py-1 rounded bg-slate-700/60 hover:bg-slate-700 text-slate-300 flex items-center gap-1 transition">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copia
+            </button>
+          </div>
+          <div class="p-3 flex-1 flex flex-col">
+            <textarea id="restore-output-text" readonly placeholder="Il testo finale con i nomi e i dati ripristinati comparirà qui..." class="w-full flex-1 bg-transparent border-0 text-sm text-emerald-200 placeholder-slate-500 focus:outline-none resize-none font-mono leading-relaxed p-2"></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="flex items-center justify-between bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+        <div class="text-xs text-slate-400">
+          Entità nel dizionario di ripristino: <span id="restore-dict-count" class="font-mono text-indigo-300 font-bold">0</span>
+        </div>
+        <button id="run-restore-btn" class="px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition transform active:scale-95">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          <span>Ripristina Testo Originale</span>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="sliders" class="w-5 h-5 text-indigo-400"></i>
+          Configurazione Gemini API
+        </h3>
+        <button id="close-settings-btn" class="text-slate-400 hover:text-white transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block font-medium text-slate-300 mb-1.5">Gemini API Key</label>
+          <input type="password" id="api-key-input" placeholder="AIzaSy..." class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+          <p class="text-[11px] text-slate-400 mt-1">Se configurata nel file <code class="text-indigo-300">.env</code> del server, puoi lasciare questo campo vuoto.</p>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-300 mb-1.5">Modello Gemini</label>
+          <select id="model-select" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Consigliato - Free 500 RPD)</option>
+            <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
+            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-3 pt-2">
+        <button id="save-settings-btn" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition">
+          Salva Configurazione
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast Container -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 hidden max-w-sm px-4 py-3 rounded-xl shadow-2xl border text-xs font-medium flex items-center gap-2.5 transition-all">
+    <i id="toast-icon" data-lucide="check-circle" class="w-4 h-4 shrink-0"></i>
+    <span id="toast-message">Operazione completata</span>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
